@@ -1,0 +1,51 @@
+name: Terraform Cleanup
+
+on:
+  pull_request:
+    types:
+      - opened
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    inputs:
+      token:
+        description: 'GitHub token'
+        required: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Download Terraform Cleaner
+        run: |
+          wget https://github.com/sylwit/terraform-cleaner/releases/download/v0.0.4/terraform-cleaner_0.0.4_linux_amd64.tar.gz
+          tar -xvf terraform-cleaner_0.0.4_linux_amd64.tar.gz
+
+      - name: Run Terraform Cleaner
+        id: terraform-cleaner
+        run: |
+          mv terraform-cleaner /usr/local/bin 
+          terraform-cleaner
+          cleaner_output=$(terraform-cleaner 2>&1)
+          echo "::set-output name=cleaner-output::$cleaner_output"
+
+      - name: Get PR Number
+        id: pr-number
+        run: |
+          echo "::set-output name=pr-number::$(jq --raw-output .pull_request.number $GITHUB_EVENT_PATH)"
+
+      - name: Comment on PR
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ inputs.token }}" \
+            -H "Content-Type: application/json" \
+            -d '{"body": "Terraform Cleaner Output:\n\n'"${{ steps.terraform-cleaner.outputs['cleaner-output'] }}"'"}' \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.pr-number.outputs.pr-number }}/comments"
+#Example To use this template in another workflow, you can include the following code:
+#- name: Terraform Cleanup Workflow
+#  uses: .github/workflows/terraform-cleanup-template.yml@main
+#  with:
+#    token: ${{ secrets.TOKEN }}
+
