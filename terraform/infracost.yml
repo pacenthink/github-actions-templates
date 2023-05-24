@@ -8,21 +8,14 @@ on:
         required: false
         type: string
         default: 'terraform'
-# tfvars file path          
-      terraform-var-file:
-        required: false
-        type: string
-        default: ''
-# infracost usage file path
-      usage-file:
-        required: false
-        type: string
-        default: './.env/dev/infracost-usage.yml'
-
 jobs:
   infracost:
     name: Infracost Analysis
     runs-on: ubuntu-latest
+        permissions:
+      contents: read
+      # Required to post comments
+      pull-requests: write
 
     env:
       TF_ROOT: ${{ inputs.working-directory }}
@@ -59,7 +52,7 @@ jobs:
 
 # Checkout the current PR branch so we can create a diff.                              
       - name: Checkout PR branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
 # Generate an Infracost diff and save it to a JSON file.
       - name: Generate Infracost diff
@@ -73,18 +66,6 @@ jobs:
                           --usage-file ${{ inputs.usage-file }} \
                           --compare-to=/tmp/infracost-base.json \
                           --out-file=/tmp/infracost.json
-
-# generate the html report based on the JSON output from last step
-      - name: Generate Infracost Report
-        run: |
-          cd ${TF_ROOT}
-          infracost output --path /tmp/infracost.json --show-skipped --format html --out-file report.html
-
-# upload the report to artifact so subsequent workflow can download the report and email it as attachment          
-      - uses: actions/upload-artifact@v2
-        with:
-          name: report.html
-          path: ${{ inputs.working-directory }}/report.html
 
 
 # Posts a comment to the PR using the 'update' behavior.
