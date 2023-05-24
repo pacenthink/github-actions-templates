@@ -1,0 +1,49 @@
+name: Terraform Variable Cleanup
+
+on:
+  worflow_call:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    inputs:
+      GH_PAT:
+        description: 'GitHub token'
+        required: true
+      version:
+        description: 'Version of Terraform Cleaner'
+        required: true
+        default: '0.0.4'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download Terraform Cleaner
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          wget "https://github.com/sylwit/terraform-cleaner/releases/download/v${VERSION}/terraform-cleaner_${VERSION}_linux_amd64.tar.gz"
+          tar -xvf "terraform-cleaner_${VERSION}_linux_amd64.tar.gz"
+
+      - name: Run Terraform Cleaner
+        id: terraform-cleaner
+        run: |
+          mv terraform-cleaner /usr/local/bin
+          terraform-cleaner
+          cleaner_output=$(terraform-cleaner 2>&1)
+          echo "::set-output name=cleaner-output::$cleaner_output"
+
+      - name: Get PR Number
+        id: pr-number
+        run: |
+          echo "::set-output name=pr-number::$(jq --raw-output .pull_request.number $GITHUB_EVENT_PATH)"
+
+      - name: Comment on PR
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ inputs.GH_PAT }}" \
+            -H "Content-Type: application/json" \
+            -d '{"body": "Terraform Cleaner Output:\n\n'"${{ steps.terraform-cleaner.outputs['cleaner-output'] }}"'"}' \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.pr-number.outputs.pr-number }}/comments"
+
