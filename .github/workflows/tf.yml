@@ -1,0 +1,109 @@
+name: Terraform
+
+on:
+  workflow_call:
+    inputs:
+      terraform-version:
+        description: Version of Terraform to use
+        type: string
+        default: latest
+      working-directory:
+        description: Working directory for all workflow operations, unless documented otherwise.
+        type: string
+        default: .
+      runs-on:
+        description: Defines the type of machine to run the jobs on.
+        type: string
+        default: ubuntu-latest
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_REGION:
+        required: true
+      GH_PAT:
+        required: true
+
+jobs:
+  terraform:
+    runs-on: ${{ inputs.runs-on }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Check AWS Identity
+        run: aws sts get-caller-identity
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+
+      - name: Terraform Format
+        id: fmt
+        working-directory: ${{ inputs.working-directory }}
+        run: make fmt
+
+      - name: Terraform Init
+        id: init
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          git config --global url."https://oauth2:${{ secrets.GH_PAT }}@github.com".insteadOf ssh://git@github.com
+          make init
+      
+      - name: Terraform Validate
+        id: validate
+        working-directory: ${{ inputs.working-directory }}
+        run: make validate
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ inputs.working-directory }}
+        if: github.event_name == 'pull_request'
+        run: make plan
+        continue-on-error: true
+
+      - name: Update Pull Request
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        env:
+          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          script: |
+            const output = `#### Terraform Module
+            #### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+            <details><summary>Show Plan</summary>
+            \`\`\`\n
+            ${process.env.PLAN}
+            \`\`\`
+            </details>
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terraform Plan Status
+        if: steps.plan.outcome == 'failure'
+        working-directory: ${{ inputs.working-directory }}
+        run: exit 1
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        working-directory: ${{ inputs.working-directory }}
+        run: make apply
