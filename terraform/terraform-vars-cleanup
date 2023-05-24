@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     inputs:
-      token:
+      GH_PAT_TOKEN:
         description: 'GitHub token'
         required: true
       version:
