@@ -1,8 +1,10 @@
-name: Create Release && Rollback
+name: Release and Rollback
 
 on:
   workflow_dispatch:
-    
+    secrets:
+     GH_PAT:
+       required: true
 
 jobs:
   release:
@@ -17,9 +19,8 @@ jobs:
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          GH_PAT: ${{ secrets.GH_PAT }}
           tag_name: ${{ needs.release_tag.outputs.tag }}
           release_name: Release ${{ needs.release_tag.outputs.tag }}
           draft: false
@@ -34,13 +35,10 @@ jobs:
       - name: Rollback Release
         uses: author/action-rollback@stable
         with:
+          GH_PAT: ${{ secrets.GH_PAT }}
           # Using a known release ID
           release_id: ${{ needs.release.id }}
           # Using a tag name
           tag: ${{ needs.release.outputs.tag }}
           # If the release does not exist but the tag does, setting this to true will remove the tag.
-          delete_orphan_tag: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
+          delete_orphan_tag: true 
