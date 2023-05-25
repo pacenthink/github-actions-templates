@@ -1,7 +1,7 @@
 name: Release and Rollback
 
 on:
-  workflow_dispatch:
+  workflow_call:
 
 jobs:
   release:
