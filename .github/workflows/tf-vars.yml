@@ -3,7 +3,7 @@ on:
     inputs:
       version:
        description: 'Version of Terraform Cleaner'
-       required: true
+       required: false
        type: string
        default: '0.0.4'
     secrets:
@@ -23,9 +23,9 @@ jobs:
 
       - name: Download Terraform Cleaner
         run: |
-          VERSION="${{ github.event.inputs.version }}"
-          wget https://github.com/sylwit/terraform-cleaner/releases/download/v${{ github.event.inputs.version || '0.0.4' }}/terraform-cleaner_${{ github.event.inputs.version || '0.0.4' }}_linux_amd64.tar.gz
-          tar -xvf terraform-cleaner_${{ github.event.inputs.version || '0.0.4' }}_linux_amd64.tar.gz
+          VERSION="${{ inputs.version || github.event.inputs.version }}"
+          wget https://github.com/sylwit/terraform-cleaner/releases/download/v${VERSION}/terraform-cleaner_${VERSION}_linux_amd64.tar.gz
+          tar -xvf terraform-cleaner_${VERSION}_linux_amd64.tar.gz
           
       - name: Run Terraform Cleaner
         id: terraform-cleaner
