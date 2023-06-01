@@ -26,6 +26,7 @@ jobs:
           VERSION="${{ github.event.inputs.version }}"
           wget https://github.com/sylwit/terraform-cleaner/releases/download/v${{ github.event.inputs.version || '0.0.4' }}/terraform-cleaner_${{ github.event.inputs.version || '0.0.4' }}_linux_amd64.tar.gz
           tar -xvf terraform-cleaner_${{ github.event.inputs.version || '0.0.4' }}_linux_amd64.tar.gz
+          
       - name: Run Terraform Cleaner
         id: terraform-cleaner
         run: |
@@ -39,6 +40,7 @@ jobs:
         run: |
          echo "Cleaner Output:"
          echo $output
+         
       - name: Get PR number
         id: PR
         run: echo "Pull Request number is ${{ github.event.pull_request.number }}"
