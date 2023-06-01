@@ -32,12 +32,7 @@ jobs:
         run: |
           mv terraform-cleaner /usr/local/bin
           echo "output=$(echo $(terraform-cleaner))" >> $GITHUB_ENV
-          
-      - name: Check Cleaner Output
-        run: |
-         echo "Cleaner Output:"
-         echo $output
-         
+                   
       - name: Comment on PR
         uses: marocchino/sticky-pull-request-comment@v2
         with:
