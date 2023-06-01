@@ -31,8 +31,7 @@ jobs:
         id: terraform-cleaner
         run: |
           mv terraform-cleaner /usr/local/bin
-              output=$(terraform-cleaner)
-              echo "output=$output" >> $GITHUB_ENV
+          echo "output=$(echo $(terraform-cleaner))" >> $GITHUB_ENV
           
       - name: Check Cleaner Output
         run: |
