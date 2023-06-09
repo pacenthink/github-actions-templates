@@ -3,32 +3,33 @@ name: Infracost
 on:
   workflow_call:
     inputs:
-      # working-directory is added to specify "terraform" directory in project source code as that's where the terraform files live.
       working-directory:
         required: false
         type: string
         default: 'terraform'
+    secrets:
+      INFRACOST_API_KEY:
+        required: true
+      GH_PAT:
+        required: true
+
 jobs:
   infracost:
     name: Infracost
     runs-on: ubuntu-latest
-        permissions:
+    permissions:
       contents: read
-      # Required to post comments
       pull-requests: write
 
     env:
       TF_ROOT: ${{ inputs.working-directory }}
 
     steps:
-      # this step calls infracost/actions/setup@v2, which installs the latest patch version of the Infracost CLI v0.10.x and
-      # gets the backward-compatible bug fixes and new resources. Replacing the version number with git SHA is a security hardening measure.      
       - name: Setup Infracost
         uses: infracost/actions/setup@v2
         with:
           api-key: ${{ secrets.INFRACOST_API_KEY }}
 
-      # Checkout the base branch of the pull request (e.g. main).
       - name: Checkout base branch
         uses: actions/checkout@v2
         with:
@@ -36,50 +37,34 @@ jobs:
 
       - name: Print debug info
         run: |
-          echo github base branch is ${{github.event.pull_request.base.ref}}
-          echo github.event.pull_request.number is ${{github.event.pull_request.number}}
+          echo github base branch is ${{ github.event.pull_request.base.ref }}
+          echo github.event.pull_request.number is ${{ github.event.pull_request.number }}
 
-      # Generate Infracost JSON file as the baseline.          
       - name: Generate Infracost cost estimate baseline
         run: |
           export INFRACOST_API_KEY=${{ secrets.INFRACOST_API_KEY }}
           cd ${TF_ROOT}
           infracost breakdown --path=. \
-                              --terraform-var-file=${{ inputs.terraform-var-file }} \
-                              --usage-file ${{ inputs.usage-file }} \
                               --format=json \
                               --out-file=/tmp/infracost-base.json
 
-      # Checkout the current PR branch so we can create a diff.                              
       - name: Checkout PR branch
         uses: actions/checkout@v3
 
-      # Generate an Infracost diff and save it to a JSON file.
       - name: Generate Infracost diff
         run: |
           export INFRACOST_API_KEY=${{ secrets.INFRACOST_API_KEY }}
-          cd ${TF_ROOT}
+          cd ${{ env.TF_ROOT }}
           infracost diff --path=. \
                           --format=json \
-                          --show-skipped \
-                          --terraform-var-file=${{ inputs.terraform-var-file }} \
-                          --usage-file ${{ inputs.usage-file }} \
                           --compare-to=/tmp/infracost-base.json \
                           --out-file=/tmp/infracost.json
 
-      # Posts a comment to the PR using the 'update' behavior.
-      # This creates a single comment and updates it. The "quietest" option.
-      # The other valid behaviors are:
-      #   delete-and-new - Delete previous comments and create a new one.
-      #   hide-and-new - Minimize previous comments and create a new one.
-      #   new - Create a new cost estimate comment on every push.
-      #   update - Update a cost estimate comment when there is a change in the cost estimate.
-      # See https://www.infracost.io/docs/features/cli_commands/#comment-on-pull-requests for other options.
       - name: Post Infracost comment
         run: |
           export INFRACOST_API_KEY=${{ secrets.INFRACOST_API_KEY }}
           infracost comment github --path=/tmp/infracost.json \
                                    --repo=$GITHUB_REPOSITORY \
-                                   --github-token=${{github.token}} \
-                                   --pull-request=${{github.event.pull_request.number}} \
+                                   --github-token=${{ github.token }} \
+                                   --pull-request=${{ github.event.pull_request.number }} \
                                    --behavior=update
